@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>學習信件彙整站</title>
+<style>
+  :root{
+    --bg:#f7f7f8; --card:#ffffff; --border:#e5e5e8; --text:#1c1c1f; --sub:#6b6b76;
+    --accent:#2f6fed; --accent-bg:#eaf1fe; --zh-bg:#fff8ec; --zh-border:#f0d9a8;
+    --tab-bg:#eeeef1; --shadow:0 1px 3px rgba(0,0,0,.06);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang TC","Microsoft JhengHei",sans-serif;background:var(--bg);color:var(--text);}
+  header{background:var(--card);border-bottom:1px solid var(--border);padding:16px 20px;position:sticky;top:0;z-index:20;}
+  header h1{margin:0 0 10px;font-size:18px;}
+  .controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+  .controls label{font-size:13px;color:var(--sub);display:flex;align-items:center;gap:6px;}
+  select,input[type="search"]{padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:#fff;}
+  input[type="search"]{flex:1;min-width:160px;}
+  .tabs{display:flex;gap:6px;overflow-x:auto;padding:10px 20px 0;background:var(--card);border-bottom:1px solid var(--border);position:sticky;top:64px;z-index:19;}
+  .tab{padding:8px 14px;border-radius:8px 8px 0 0;background:var(--tab-bg);color:var(--sub);font-size:13px;white-space:nowrap;cursor:pointer;border:1px solid transparent;}
+  .tab.active{background:var(--card);color:var(--accent);font-weight:600;border:1px solid var(--border);border-bottom:1px solid var(--card);margin-bottom:-1px;}
+  .tab .count{color:var(--sub);font-weight:400;margin-left:4px;font-size:11px;}
+  main{max-width:900px;margin:0 auto;padding:20px;}
+  .status{color:var(--sub);font-size:13px;padding:20px 0;text-align:center;}
+  .email-card{background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:14px;box-shadow:var(--shadow);overflow:hidden;}
+  .email-head{padding:14px 16px;cursor:pointer;display:flex;justify-content:space-between;gap:12px;align-items:flex-start;}
+  .email-head:hover{background:#fafafa;}
+  .email-title{font-size:15px;font-weight:600;line-height:1.4;}
+  .email-meta{font-size:12px;color:var(--sub);margin-top:4px;display:flex;gap:10px;flex-wrap:wrap;}
+  .email-meta a{color:var(--sub);text-decoration:none;}
+  .email-meta a:hover{text-decoration:underline;}
+  .read-badge{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent);flex:none;margin-top:6px;}
+  .read-badge.read{background:#c9c9cf;}
+  .email-body{display:none;border-top:1px solid var(--border);padding:16px;font-size:14px;line-height:1.75;white-space:pre-wrap;word-break:break-word;}
+  .email-body.open{display:block;}
+  .bilingual-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  @media (max-width:720px){.bilingual-grid{grid-template-columns:1fr;}}
+  .lang-col{border:1px solid var(--border);border-radius:8px;padding:12px;}
+  .lang-col.en{background:var(--accent-bg);border-color:#cfe0fd;}
+  .lang-col.zh{background:var(--zh-bg);border-color:var(--zh-border);}
+  .lang-label{font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--sub);margin-bottom:8px;text-transform:uppercase;}
+  .toolbar{display:flex;gap:8px;padding:10px 16px;border-top:1px solid var(--border);background:#fafafa;}
+  .toolbar button{font-size:12px;padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:#fff;color:var(--sub);cursor:pointer;}
+  .toolbar button:hover{border-color:var(--accent);color:var(--accent);}
+  .empty{text-align:center;color:var(--sub);padding:60px 20px;font-size:14px;}
+  ::selection{background:#ffe58a;}
+  footer{text-align:center;color:var(--sub);font-size:12px;padding:30px 20px 50px;}
+</style>
+</head>
+<body>
+<header>
+  <h1>📚 學習信件彙整站</h1>
+  <div class="controls">
+    <label><input type="checkbox" id="fullHistory"> 顯示全部歷史（預設近 6 個月）</label>
+    <input type="search" id="searchBox" placeholder="搜尋標題...">
+    <label><input type="checkbox" id="unreadOnly"> 只看未讀</label>
+  </div>
+</header>
+<div class="tabs" id="tabs"></div>
+<main id="main">
+  <div class="status">載入標籤設定中...</div>
+</main>
+<footer>資料來源：Gmail「06_學習」標籤 · 手動更新版 v1</footer>
+
+<script>
+const state = { labels: [], activeKey: null, cache: {}, readIds: new Set() };
+
+try {
+  const raw = localStorage.getItem('digest_read_ids');
+  if (raw) state.readIds = new Set(JSON.parse(raw));
+} catch (e) {}
+
+function saveReadIds() {
+  try { localStorage.setItem('digest_read_ids', JSON.stringify([...state.readIds])); } catch (e) {}
+  // Future: sync to Cloudflare Worker + KV for cross-device read tracking.
+  // fetch('/api/read', {method:'POST', body: JSON.stringify({ids:[...state.readIds]})}).catch(()=>{});
+}
+
+function markRead(id) {
+  if (!state.readIds.has(id)) {
+    state.readIds.add(id);
+    saveReadIds();
+  }
+}
+
+function sendToReadwise(text, title, url) {
+  // Future: proxy through a Cloudflare Worker so the Readwise API token never reaches the browser.
+  // fetch('/api/readwise', {method:'POST', body: JSON.stringify({text, title, url})})
+  //   .then(r => r.ok ? alert('已存到 Readwise') : alert('存檔失敗'))
+  //   .catch(() => alert('存檔失敗（尚未設定後端）'));
+  alert('「存到 Readwise」功能尚未串接後端，敬請期待。\n\n已畫記內容：\n' + text.slice(0, 200) + (text.length > 200 ? '…' : ''));
+}
+
+function escapeHtml(s) {
+  return (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function fmtDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d)) return iso;
+  return d.toLocaleString('zh-TW', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
+}
+
+function withinWindow(iso, months) {
+  if (!months) return true;
+  const d = new Date(iso);
+  if (isNaN(d)) return true;
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - months);
+  return d >= cutoff;
+}
+
+async function loadLabels() {
+  const res = await fetch('data/labels.json');
+  state.labels = await res.json();
+  renderTabs();
+  if (state.labels.length) selectTab(state.labels[0].key);
+}
+
+function renderTabs() {
+  const tabsEl = document.getElementById('tabs');
+  tabsEl.innerHTML = '';
+  state.labels.forEach(l => {
+    const el = document.createElement('div');
+    el.className = 'tab' + (l.key === state.activeKey ? ' active' : '');
+    el.textContent = l.name;
+    el.onclick = () => selectTab(l.key);
+    tabsEl.appendChild(el);
+  });
+}
+
+async function selectTab(key) {
+  state.activeKey = key;
+  renderTabs();
+  const main = document.getElementById('main');
+  main.innerHTML = '<div class="status">載入中...</div>';
+
+  let data = state.cache[key];
+  if (!data) {
+    try {
+      const res = await fetch('data/' + key + '.json');
+      if (!res.ok) throw new Error('not found');
+      data = await res.json();
+      state.cache[key] = data;
+    } catch (e) {
+      data = { label: key, emails: [] };
+      state.cache[key] = data;
+    }
+  }
+  renderEmails();
+}
+
+function renderEmails() {
+  const main = document.getElementById('main');
+  const data = state.cache[state.activeKey];
+  const labelCfg = state.labels.find(l => l.key === state.activeKey) || {};
+  const fullHistory = document.getElementById('fullHistory').checked;
+  const unreadOnly = document.getElementById('unreadOnly').checked;
+  const q = document.getElementById('searchBox').value.trim().toLowerCase();
+
+  if (!data || !data.emails || !data.emails.length) {
+    main.innerHTML = '<div class="empty">這個標籤還沒有資料。<br>（尚未從 Gmail 抓取，或資料檔尚未建立）</div>';
+    return;
+  }
+
+  let emails = data.emails.filter(e => withinWindow(e.date, fullHistory ? null : 6));
+  if (unreadOnly) emails = emails.filter(e => !state.readIds.has(e.id));
+  if (q) emails = emails.filter(e => (e.subject || '').toLowerCase().includes(q));
+
+  if (!emails.length) {
+    main.innerHTML = '<div class="empty">沒有符合條件的信件。</div>';
+    return;
+  }
+
+  main.innerHTML = '';
+  emails.forEach(e => {
+    const card = document.createElement('div');
+    card.className = 'email-card';
+    const isRead = state.readIds.has(e.id);
+
+    const head = document.createElement('div');
+    head.className = 'email-head';
+    head.innerHTML = `
+      <div style="flex:1">
+        <div class="email-title">${escapeHtml(e.subject || '（無標題）')}</div>
+        <div class="email-meta">
+          <span>${fmtDate(e.date)}</span>
+          ${e.gmailUrl ? `<a href="${e.gmailUrl}" target="_blank" onclick="event.stopPropagation()">在 Gmail 開啟 ↗</a>` : ''}
+        </div>
+      </div>
+      <span class="read-badge ${isRead ? 'read' : ''}" title="${isRead ? '已讀' : '未讀'}"></span>
+    `;
+
+    const body = document.createElement('div');
+    body.className = 'email-body';
+
+    if (labelCfg.bilingual) {
+      body.innerHTML = `
+        <div class="bilingual-grid">
+          <div class="lang-col en"><div class="lang-label">English</div><div class="body-text">${escapeHtml(e.contentEn || '')}</div></div>
+          <div class="lang-col zh"><div class="lang-label">繁體中文</div><div class="body-text">${escapeHtml(e.contentZh || '')}</div></div>
+        </div>
+      `;
+    } else {
+      body.innerHTML = `<div class="body-text">${escapeHtml(e.content || '')}</div>`;
+    }
+
+    const toolbar = document.createElement('div');
+    toolbar.className = 'toolbar';
+    const saveBtn = document.createElement('button');
+    saveBtn.textContent = '✏️ 畫重點存 Readwise';
+    saveBtn.onclick = (ev) => {
+      ev.stopPropagation();
+      const sel = window.getSelection().toString().trim();
+      const text = sel || (labelCfg.bilingual ? (e.contentEn || '') : (e.content || ''));
+      sendToReadwise(text, e.subject, e.gmailUrl);
+    };
+    const readBtn = document.createElement('button');
+    readBtn.textContent = isRead ? '✓ 已讀' : '標記已讀';
+    readBtn.onclick = (ev) => {
+      ev.stopPropagation();
+      markRead(e.id);
+      renderEmails();
+    };
+    toolbar.appendChild(saveBtn);
+    toolbar.appendChild(readBtn);
+
+    head.onclick = () => {
+      body.classList.toggle('open');
+      if (body.classList.contains('open')) markRead(e.id);
+    };
+
+    card.appendChild(head);
+    card.appendChild(body);
+    card.appendChild(toolbar);
+    main.appendChild(card);
+  });
+}
+
+document.getElementById('fullHistory').addEventListener('change', renderEmails);
+document.getElementById('unreadOnly').addEventListener('change', renderEmails);
+document.getElementById('searchBox').addEventListener('input', renderEmails);
+
+loadLabels().catch(err => {
+  document.getElementById('main').innerHTML = '<div class="empty">載入標籤設定失敗：' + escapeHtml(err.message) + '</div>';
+});
+</script>
+</body>
+</html>
