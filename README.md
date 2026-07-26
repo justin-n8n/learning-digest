@@ -23,6 +23,12 @@
 ```
 
 ## 部署
-Cloudflare Pages（連接此 repo，build 指令留空，輸出目錄設為 `/`），前面掛 Cloudflare Access 限制登入者。
+Cloudflare Pages（連接此 repo，build 指令留空，輸出目錄設為 `/`），前面掛 Cloudflare Access 限制登入者（Email 一次性驗證碼，僅限擁有者信箱）。
 
 v1 為手動更新版：資料抓取與更新透過 Claude 執行 Gmail 抓取流程後直接 push 新的 `data/*.json`。
+
+## 後端功能（Cloudflare Pages Functions）
+- `functions/api/read.js`：已讀狀態同步。GET 讀取、POST 合併寫入，存在 KV namespace（需在 Pages 專案設定綁定變數 `READ_KV`）。
+- `functions/api/readwise.js`：畫重點存 Readwise 的後端代理，避免 API token 落到前端。需在 Pages 專案的環境變數設定加密變數 `READWISE_TOKEN`（Readwise 個人 API token，可在 https://readwise.io/access_token 取得）。
+
+兩者皆需在 Cloudflare dashboard 手動設定（KV 綁定、環境變數），設定完成後重新部署即可生效。
