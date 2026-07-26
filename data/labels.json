@@ -1,0 +1,15 @@
+[
+  { "key": "damon", "name": "Damon", "gmailLabel": "06_學習/Damon", "labelId": "Label_3753692681857176071", "bilingual": true },
+  { "key": "james", "name": "james", "gmailLabel": "06_學習/james", "labelId": "Label_2318727129382809273", "bilingual": true },
+  { "key": "ai2026", "name": "2026AI訂閱", "gmailLabel": "06_學習/2026AI訂閱", "labelId": "Label_522335023913587695", "bilingual": false },
+  { "key": "master_easy_read", "name": "大師輕鬆讀", "gmailLabel": "06_學習/大師輕鬆讀", "labelId": "Label_850179891846499761", "bilingual": false },
+  { "key": "future_biz", "name": "未來商務", "gmailLabel": "06_學習/未來商務", "labelId": "Label_4031827219020548547", "bilingual": false },
+  { "key": "alvin", "name": "艾爾文", "gmailLabel": "06_學習/艾爾文", "labelId": "Label_2171113756778292459", "bilingual": false },
+  { "key": "hou_zhixun", "name": "侯智薰", "gmailLabel": "06_學習/侯智薰", "labelId": "Label_3544715739386180075", "bilingual": false },
+  { "key": "wsj", "name": "華爾街日報", "gmailLabel": "06_學習/華爾街日報", "labelId": "Label_8760175458355617909", "bilingual": true },
+  { "key": "brief", "name": "Brief", "gmailLabel": "06_學習/Brief", "labelId": "Label_3367205939263792668", "bilingual": false },
+  { "key": "vista_cheng", "name": "Vista Cheng", "gmailLabel": "06_學習/Vista Cheng from Vista電子報", "labelId": "Label_4092887730022971363", "bilingual": false },
+  { "key": "fuge", "name": "福哥來信", "gmailLabel": "06_學習/福哥來信", "labelId": "Label_4523792686777732210", "bilingual": false },
+  { "key": "bnext", "name": "數位時代", "gmailLabel": "06_學習/數位時代", "labelId": "Label_1757920366459479671", "bilingual": false },
+  { "key": "ali_mirza", "name": "ali mirza", "gmailLabel": "06_學習/ali mirza", "labelId": "Label_5327024402327838555", "bilingual": false }
+]
