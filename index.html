@@ -74,8 +74,33 @@ try {
 
 function saveReadIds() {
   try { localStorage.setItem('digest_read_ids', JSON.stringify([...state.readIds])); } catch (e) {}
-  // Future: sync to Cloudflare Worker + KV for cross-device read tracking.
-  // fetch('/api/read', {method:'POST', body: JSON.stringify({ids:[...state.readIds]})}).catch(()=>{});
+  // Sync to Cloudflare Pages Function + KV for cross-device read tracking.
+  // Fire-and-forget: local state (and localStorage) is already updated, so a
+  // network hiccup here just means this device's read marks sync up later.
+  fetch('/api/read', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ids: [...state.readIds] })
+  }).catch(() => {});
+}
+
+async function loadServerReadIds() {
+  try {
+    const res = await fetch('/api/read');
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && Array.isArray(data.ids)) {
+      let changed = false;
+      data.ids.forEach(id => {
+        if (!state.readIds.has(id)) { state.readIds.add(id); changed = true; }
+      });
+      if (changed) {
+        try { localStorage.setItem('digest_read_ids', JSON.stringify([...state.readIds])); } catch (e) {}
+      }
+    }
+  } catch (e) {
+    // Backend not reachable (e.g. KV not configured yet) — silently fall back to localStorage only.
+  }
 }
 
 function markRead(id) {
@@ -86,11 +111,17 @@ function markRead(id) {
 }
 
 function sendToReadwise(text, title, url) {
-  // Future: proxy through a Cloudflare Worker so the Readwise API token never reaches the browser.
-  // fetch('/api/readwise', {method:'POST', body: JSON.stringify({text, title, url})})
-  //   .then(r => r.ok ? alert('已存到 Readwise') : alert('存檔失敗'))
-  //   .catch(() => alert('存檔失敗（尚未設定後端）'));
-  alert('「存到 Readwise」功能尚未串接後端，敬請期待。\n\n已畫記內容：\n' + text.slice(0, 200) + (text.length > 200 ? '…' : ''));
+  fetch('/api/readwise', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text, title, url })
+  })
+    .then(async r => {
+      if (r.ok) { alert('已存到 Readwise ✓'); return; }
+      const data = await r.json().catch(() => ({}));
+      alert('存檔失敗：' + (data.error || r.status));
+    })
+    .catch(() => alert('存檔失敗（無法連線到後端）'));
 }
 
 function escapeHtml(s) {
@@ -114,6 +145,7 @@ function withinWindow(iso, months) {
 }
 
 async function loadLabels() {
+  await loadServerReadIds();
   const res = await fetch('data/labels.json');
   state.labels = await res.json();
   renderTabs();
