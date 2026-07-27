@@ -6,55 +6,105 @@
 <title>學習信件彙整站</title>
 <style>
   :root{
-    --bg:#f7f7f8; --card:#ffffff; --border:#e5e5e8; --text:#1c1c1f; --sub:#6b6b76;
-    --accent:#2f6fed; --accent-bg:#eaf1fe; --zh-bg:#fff8ec; --zh-border:#f0d9a8;
-    --tab-bg:#eeeef1; --shadow:0 1px 3px rgba(0,0,0,.06);
+    --bg:#eef6fc;
+    --bg-grad-a:#e3f2fd;
+    --bg-grad-b:#f3fbff;
+    --card:#ffffff;
+    --border:#d8e9f5;
+    --text:#16232e;
+    --sub:#5b7285;
+    --accent:#0ea5e9;
+    --accent-dark:#0284c7;
+    --accent-bg:#e0f2fe;
+    --accent-bg-2:#cceafc;
+    --zh-bg:#f0fbf4;
+    --zh-border:#bfe8cd;
+    --zh-text:#166534;
+    --tab-bg:#e5f2fa;
+    --shadow:0 2px 10px rgba(14,165,233,.08);
+    --shadow-lg:0 8px 28px rgba(14,165,233,.16);
+    --radius:14px;
   }
   *{box-sizing:border-box}
-  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang TC","Microsoft JhengHei",sans-serif;background:var(--bg);color:var(--text);}
-  header{background:var(--card);border-bottom:1px solid var(--border);padding:16px 20px;position:sticky;top:0;z-index:20;}
-  header h1{margin:0 0 10px;font-size:18px;}
-  .controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
-  .controls label{font-size:13px;color:var(--sub);display:flex;align-items:center;gap:6px;}
-  select,input[type="search"]{padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:#fff;}
-  input[type="search"]{flex:1;min-width:160px;}
-  .tabs{display:flex;gap:6px;overflow-x:auto;padding:10px 20px 0;background:var(--card);border-bottom:1px solid var(--border);position:sticky;top:64px;z-index:19;}
-  .tab{padding:8px 14px;border-radius:8px 8px 0 0;background:var(--tab-bg);color:var(--sub);font-size:13px;white-space:nowrap;cursor:pointer;border:1px solid transparent;}
-  .tab.active{background:var(--card);color:var(--accent);font-weight:600;border:1px solid var(--border);border-bottom:1px solid var(--card);margin-bottom:-1px;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang TC","Microsoft JhengHei",sans-serif;background:linear-gradient(180deg,var(--bg-grad-a),var(--bg-grad-b) 320px,var(--bg) 320px);color:var(--text);}
+
+  header{background:linear-gradient(135deg,#0ea5e9,#38bdf8 60%,#7dd3fc);padding:22px 24px 18px;position:sticky;top:0;z-index:20;box-shadow:0 2px 14px rgba(14,165,233,.25);}
+  .header-top{display:flex;align-items:center;justify-content:space-between;max-width:980px;margin:0 auto 14px;gap:12px;}
+  header h1{margin:0;font-size:19px;color:#fff;letter-spacing:.02em;display:flex;align-items:center;gap:8px;}
+  .header-actions{display:flex;gap:8px;flex:none;}
+  .icon-btn{background:rgba(255,255,255,.22);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:9px;padding:7px 13px;font-size:12.5px;cursor:pointer;font-weight:600;display:flex;align-items:center;gap:5px;transition:background .15s;}
+  .icon-btn:hover{background:rgba(255,255,255,.35);}
+
+  .controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;max-width:980px;margin:0 auto;}
+  .controls label{font-size:13px;color:#eef9ff;display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.14);padding:6px 10px;border-radius:8px;}
+  .controls input[type="checkbox"]{accent-color:#fff;}
+  select,input[type="search"]{padding:8px 12px;border:1px solid transparent;border-radius:8px;font-size:13px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.08);}
+  input[type="search"]{flex:1;min-width:180px;}
+  input[type="search"]:focus,select:focus{outline:2px solid rgba(255,255,255,.6);}
+
+  .tabs{display:flex;gap:6px;overflow-x:auto;padding:12px 24px 0;background:var(--card);border-bottom:1px solid var(--border);position:sticky;top:96px;z-index:19;max-width:980px;margin:0 auto;}
+  @media(max-width:1020px){.tabs{max-width:none}}
+  .tab{padding:9px 15px;border-radius:9px 9px 0 0;background:var(--tab-bg);color:var(--sub);font-size:13px;white-space:nowrap;cursor:pointer;border:1px solid transparent;font-weight:500;transition:background .15s,color .15s;}
+  .tab:hover{background:var(--accent-bg-2);color:var(--accent-dark);}
+  .tab.active{background:var(--card);color:var(--accent-dark);font-weight:700;border:1px solid var(--border);border-bottom:2px solid var(--accent);margin-bottom:-1px;}
   .tab .count{color:var(--sub);font-weight:400;margin-left:4px;font-size:11px;}
-  main{max-width:900px;margin:0 auto;padding:20px;}
-  .status{color:var(--sub);font-size:13px;padding:20px 0;text-align:center;}
-  .email-card{background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:14px;box-shadow:var(--shadow);overflow:hidden;}
-  .email-head{padding:14px 16px;cursor:pointer;display:flex;justify-content:space-between;gap:12px;align-items:flex-start;}
-  .email-head:hover{background:#fafafa;}
-  .email-title{font-size:15px;font-weight:600;line-height:1.4;}
-  .email-meta{font-size:12px;color:var(--sub);margin-top:4px;display:flex;gap:10px;flex-wrap:wrap;}
-  .email-meta a{color:var(--sub);text-decoration:none;}
+  .tab.active .count{color:var(--accent);}
+  .tab .bi-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-left:5px;vertical-align:middle;}
+
+  main{max-width:980px;margin:0 auto;padding:22px 24px;}
+  .status{color:var(--sub);font-size:13px;padding:30px 0;text-align:center;}
+  .email-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:14px;box-shadow:var(--shadow);overflow:hidden;transition:box-shadow .15s,border-color .15s;}
+  .email-card:hover{box-shadow:var(--shadow-lg);border-color:var(--accent-bg-2);}
+  .email-head{padding:15px 18px;cursor:pointer;display:flex;justify-content:space-between;gap:12px;align-items:flex-start;}
+  .email-head:hover{background:#f7fcff;}
+  .email-title{font-size:15px;font-weight:600;line-height:1.4;color:var(--text);}
+  .email-meta{font-size:12px;color:var(--sub);margin-top:5px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+  .email-meta a{color:var(--accent-dark);text-decoration:none;font-weight:600;}
   .email-meta a:hover{text-decoration:underline;}
-  .read-badge{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent);flex:none;margin-top:6px;}
-  .read-badge.read{background:#c9c9cf;}
-  .email-body{display:none;border-top:1px solid var(--border);padding:16px;font-size:14px;line-height:1.75;white-space:pre-wrap;word-break:break-word;}
+  .read-badge{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--accent);flex:none;margin-top:6px;box-shadow:0 0 0 3px var(--accent-bg);}
+  .read-badge.read{background:#cbd8e2;box-shadow:none;}
+  .email-body{display:none;border-top:1px solid var(--border);padding:18px;font-size:14px;line-height:1.8;white-space:pre-wrap;word-break:break-word;background:#fbfdff;}
   .email-body.open{display:block;}
   .bilingual-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
   @media (max-width:720px){.bilingual-grid{grid-template-columns:1fr;}}
-  .lang-col{border:1px solid var(--border);border-radius:8px;padding:12px;}
-  .lang-col.en{background:var(--accent-bg);border-color:#cfe0fd;}
+  .lang-col{border:1px solid var(--border);border-radius:10px;padding:14px;background:#fff;}
+  .lang-col.en{background:var(--accent-bg);border-color:var(--accent-bg-2);}
   .lang-col.zh{background:var(--zh-bg);border-color:var(--zh-border);}
-  .lang-label{font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--sub);margin-bottom:8px;text-transform:uppercase;}
-  .toolbar{display:flex;gap:8px;padding:10px 16px;border-top:1px solid var(--border);background:#fafafa;}
-  .toolbar button{font-size:12px;padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:#fff;color:var(--sub);cursor:pointer;}
-  .toolbar button:hover{border-color:var(--accent);color:var(--accent);}
-  .empty{text-align:center;color:var(--sub);padding:60px 20px;font-size:14px;}
-  ::selection{background:#ffe58a;}
-  footer{text-align:center;color:var(--sub);font-size:12px;padding:30px 20px 50px;}
+  .lang-label{font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--sub);margin-bottom:8px;text-transform:uppercase;}
+  .lang-col.en .lang-label{color:var(--accent-dark);}
+  .lang-col.zh .lang-label{color:var(--zh-text);}
+  .toolbar{display:flex;gap:8px;padding:10px 18px;border-top:1px solid var(--border);background:#f7fcff;}
+  .toolbar button{font-size:12px;padding:6px 12px;border-radius:7px;border:1px solid var(--border);background:#fff;color:var(--sub);cursor:pointer;font-weight:600;transition:all .15s;}
+  .toolbar button:hover{border-color:var(--accent);color:var(--accent-dark);background:var(--accent-bg);}
+  .empty{text-align:center;color:var(--sub);padding:70px 20px;font-size:14px;}
+  ::selection{background:#bae6fd;}
+  footer{text-align:center;color:var(--sub);font-size:12px;padding:30px 20px 60px;}
+  footer a{color:var(--accent-dark);}
+
+  /* Help modal */
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(15,40,60,.45);z-index:50;align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto;}
+  .modal-overlay.open{display:flex;}
+  .modal{background:#fff;border-radius:16px;max-width:640px;width:100%;padding:28px 28px 24px;box-shadow:0 20px 60px rgba(0,0,0,.25);}
+  .modal h2{margin:0 0 4px;font-size:20px;color:var(--accent-dark);display:flex;align-items:center;gap:8px;}
+  .modal .modal-sub{color:var(--sub);font-size:13px;margin:0 0 18px;}
+  .modal-close{float:right;background:none;border:none;font-size:20px;color:var(--sub);cursor:pointer;line-height:1;}
+  .modal ol,.modal ul{padding-left:20px;margin:0 0 16px;font-size:13.8px;line-height:1.9;}
+  .modal li{margin-bottom:4px;}
+  .modal h3{font-size:14.5px;margin:18px 0 8px;color:var(--text);display:flex;align-items:center;gap:6px;}
+  .modal .tip{background:var(--accent-bg);border:1px solid var(--accent-bg-2);border-radius:10px;padding:12px 14px;font-size:13px;color:#0c4a6e;margin-top:10px;}
 </style>
 </head>
 <body>
 <header>
-  <h1>📚 學習信件彙整站</h1>
+  <div class="header-top">
+    <h1>📚 學習信件彙整站</h1>
+    <div class="header-actions">
+      <button class="icon-btn" id="helpBtn">❓ 使用說明</button>
+    </div>
+  </div>
   <div class="controls">
     <label><input type="checkbox" id="fullHistory"> 顯示全部歷史（預設近 6 個月）</label>
-    <input type="search" id="searchBox" placeholder="搜尋標題...">
+    <input type="search" id="searchBox" placeholder="🔍 搜尋標題...">
     <label><input type="checkbox" id="unreadOnly"> 只看未讀</label>
   </div>
 </header>
@@ -62,7 +112,32 @@
 <main id="main">
   <div class="status">載入標籤設定中...</div>
 </main>
-<footer>資料來源：Gmail「06_學習」標籤 · 手動更新版 v1</footer>
+<footer>資料來源：Gmail「06_學習」標籤 · 手動更新版 v1 · <a href="#" id="footerHelpLink">使用說明</a></footer>
+
+<div class="modal-overlay" id="helpModal">
+  <div class="modal">
+    <button class="modal-close" id="helpClose">✕</button>
+    <h2>❓ 使用說明</h2>
+    <p class="modal-sub">學習信件彙整站怎麼用、怎麼維護，一次講清楚。</p>
+
+    <h3>🗂️ 基本操作</h3>
+    <ol>
+      <li>上方分頁依 Gmail 標籤分類，點選切換不同電子報來源，信件依日期新到舊排列。</li>
+      <li>分頁旁的藍色小圓點代表這個來源有「中英對照」（目前為 Damon、james、華爾街日報）。</li>
+      <li>預設只顯示近 6 個月信件，勾選「顯示全部歷史」可看更早的內容。</li>
+      <li>用搜尋框依標題關鍵字篩選，或勾選「只看未讀」快速找還沒看過的信。</li>
+      <li>點信件標題可展開內文；展開後會自動標記已讀，狀態會同步到雲端，換裝置登入也看得到。</li>
+      <li>選取想記錄的文字後按「✏️ 畫重點存 Readwise」，會存成一筆 Readwise highlight，方便之後做間隔複習。</li>
+    </ol>
+
+    <h3>🔄 想更新最新信件？</h3>
+    <p style="font-size:13.8px;color:var(--sub);margin:0 0 10px;">跟任何一個新的 Claude 對話說「幫我更新學習信件」，它會讀取專案交接文件、抓 Gmail 新信、清理格式、需要的話翻譯，再推送到 GitHub，Cloudflare Pages 會自動重新部署——不需要手動操作任何後台。</p>
+
+    <h3>🤖 可以自動排程抓信嗎？</h3>
+    <p style="font-size:13.8px;color:var(--sub);margin:0;">可以。目前是 v1 手動版（你開口才更新），如果想改成每天／每週自動抓信、翻譯、部署，可以請 Claude 設定排程任務，之後就不用每次手動提醒了——想開啟的話直接跟 Claude 說一聲即可。</p>
+    <div class="tip">💡 這個網站本身是純靜態頁面，平常瀏覽不會去呼叫 Gmail；只有在「更新信件」流程被觸發時才會讀取一次 Gmail。</div>
+  </div>
+</div>
 
 <script>
 const state = { labels: [], activeKey: null, cache: {}, readIds: new Set() };
@@ -74,9 +149,6 @@ try {
 
 function saveReadIds() {
   try { localStorage.setItem('digest_read_ids', JSON.stringify([...state.readIds])); } catch (e) {}
-  // Sync to Cloudflare Pages Function + KV for cross-device read tracking.
-  // Fire-and-forget: local state (and localStorage) is already updated, so a
-  // network hiccup here just means this device's read marks sync up later.
   fetch('/api/read', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -99,7 +171,6 @@ async function loadServerReadIds() {
       }
     }
   } catch (e) {
-    // Backend not reachable (e.g. KV not configured yet) — silently fall back to localStorage only.
   }
 }
 
@@ -158,7 +229,7 @@ function renderTabs() {
   state.labels.forEach(l => {
     const el = document.createElement('div');
     el.className = 'tab' + (l.key === state.activeKey ? ' active' : '');
-    el.textContent = l.name;
+    el.innerHTML = escapeHtml(l.name) + (l.bilingual ? '<span class="bi-dot" title="中英對照"></span>' : '');
     el.onclick = () => selectTab(l.key);
     tabsEl.appendChild(el);
   });
@@ -275,6 +346,13 @@ function renderEmails() {
 document.getElementById('fullHistory').addEventListener('change', renderEmails);
 document.getElementById('unreadOnly').addEventListener('change', renderEmails);
 document.getElementById('searchBox').addEventListener('input', renderEmails);
+
+function openHelp() { document.getElementById('helpModal').classList.add('open'); }
+function closeHelp() { document.getElementById('helpModal').classList.remove('open'); }
+document.getElementById('helpBtn').addEventListener('click', openHelp);
+document.getElementById('footerHelpLink').addEventListener('click', (e) => { e.preventDefault(); openHelp(); });
+document.getElementById('helpClose').addEventListener('click', closeHelp);
+document.getElementById('helpModal').addEventListener('click', (e) => { if (e.target.id === 'helpModal') closeHelp(); });
 
 loadLabels().catch(err => {
   document.getElementById('main').innerHTML = '<div class="empty">載入標籤設定失敗：' + escapeHtml(err.message) + '</div>';
