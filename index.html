@@ -73,6 +73,18 @@
   .lang-label{font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--sub);margin-bottom:8px;text-transform:uppercase;}
   .lang-col.en .lang-label{color:var(--accent-dark);}
   .lang-col.zh .lang-label{color:var(--zh-text);}
+  .para-align{display:flex;flex-direction:column;}
+  .para-head{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:10px;}
+  @media (max-width:720px){.para-head{grid-template-columns:1fr;}}
+  .para-head .lang-label{margin-bottom:0;}
+  .para-head .lang-label.en{color:var(--accent-dark);}
+  .para-head .lang-label.zh{color:var(--zh-text);}
+  .para-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:10px 0;border-top:1px dashed var(--border);}
+  .para-row:first-child{border-top:none;padding-top:0;}
+  @media (max-width:720px){.para-row{grid-template-columns:1fr;gap:4px;padding:8px 0;}}
+  .para-cell{white-space:pre-wrap;word-break:break-word;padding:9px 12px;border-radius:8px;}
+  .para-cell.en{background:var(--accent-bg);}
+  .para-cell.zh{background:var(--zh-bg);}
   .toolbar{display:flex;gap:8px;padding:10px 18px;border-top:1px solid var(--border);background:#f7fcff;}
   .toolbar button{font-size:12px;padding:6px 12px;border-radius:7px;border:1px solid var(--border);background:#fff;color:var(--sub);cursor:pointer;font-weight:600;transition:all .15s;}
   .toolbar button:hover{border-color:var(--accent);color:var(--accent-dark);background:var(--accent-bg);}
@@ -123,7 +135,7 @@
     <h3>🗂️ 基本操作</h3>
     <ol>
       <li>上方分頁依 Gmail 標籤分類，點選切換不同電子報來源，信件依日期新到舊排列。</li>
-      <li>分頁旁的藍色小圓點代表這個來源有「中英對照」（目前為 Damon、james、華爾街日報）。</li>
+      <li>分頁旁的藍色小圓點代表這個來源有「中英對照」（目前為 Damon、james、華爾街日報）。Damon、james 已改為逐段對齊排版，英文與對應的中文翻譯會左右同一列呈現，不會再有錯位；華爾街日報因翻譯是整合摘要式，暫時維持左右各自捲動的排版。</li>
       <li>預設只顯示近 6 個月信件，勾選「顯示全部歷史」可看更早的內容。</li>
       <li>用搜尋框依標題關鍵字篩選，或勾選「只看未讀」快速找還沒看過的信。</li>
       <li>點信件標題可展開內文；展開後會自動標記已讀，狀態會同步到雲端，換裝置登入也看得到。</li>
@@ -301,12 +313,33 @@ function renderEmails() {
     body.className = 'email-body';
 
     if (labelCfg.bilingual) {
-      body.innerHTML = `
-        <div class="bilingual-grid">
-          <div class="lang-col en"><div class="lang-label">English</div><div class="body-text">${escapeHtml(e.contentEn || '')}</div></div>
-          <div class="lang-col zh"><div class="lang-label">繁體中文</div><div class="body-text">${escapeHtml(e.contentZh || '')}</div></div>
-        </div>
-      `;
+      if (Array.isArray(e.paragraphs) && e.paragraphs.length) {
+        // Paragraph-aligned rendering: each English paragraph sits in the same row
+        // as its Chinese translation, so the two columns never drift out of sync.
+        const rows = e.paragraphs.map(p => `
+          <div class="para-row">
+            <div class="para-cell en">${escapeHtml(p.en || '')}</div>
+            <div class="para-cell zh">${escapeHtml(p.zh || '')}</div>
+          </div>
+        `).join('');
+        body.innerHTML = `
+          <div class="para-align">
+            <div class="para-head">
+              <div class="lang-label en">English</div>
+              <div class="lang-label zh">繁體中文</div>
+            </div>
+            ${rows}
+          </div>
+        `;
+      } else {
+        // Fallback for emails without paragraph-level alignment data yet.
+        body.innerHTML = `
+          <div class="bilingual-grid">
+            <div class="lang-col en"><div class="lang-label">English</div><div class="body-text">${escapeHtml(e.contentEn || '')}</div></div>
+            <div class="lang-col zh"><div class="lang-label">繁體中文</div><div class="body-text">${escapeHtml(e.contentZh || '')}</div></div>
+          </div>
+        `;
+      }
     } else {
       body.innerHTML = `<div class="body-text">${escapeHtml(e.content || '')}</div>`;
     }
@@ -318,7 +351,11 @@ function renderEmails() {
     saveBtn.onclick = (ev) => {
       ev.stopPropagation();
       const sel = window.getSelection().toString().trim();
-      const text = sel || (labelCfg.bilingual ? (e.contentEn || '') : (e.content || ''));
+      let fallbackText = e.content || '';
+      if (labelCfg.bilingual) {
+        fallbackText = e.contentEn || (Array.isArray(e.paragraphs) ? e.paragraphs.map(p => p.en || '').join('\n\n') : '');
+      }
+      const text = sel || fallbackText;
       sendToReadwise(text, e.subject, e.gmailUrl);
     };
     const readBtn = document.createElement('button');
