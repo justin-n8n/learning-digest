@@ -75,19 +75,5 @@
     "gmailLabel": "06_學習/福哥來信",
     "labelId": "Label_4523792686777732210",
     "bilingual": false
-  },
-  {
-    "key": "bnext",
-    "name": "數位時代",
-    "gmailLabel": "06_學習/數位時代",
-    "labelId": "Label_1757920366459479671",
-    "bilingual": false
-  },
-  {
-    "key": "ali_mirza",
-    "name": "ali mirza",
-    "gmailLabel": "06_學習/ali mirza",
-    "labelId": "Label_5327024402327838555",
-    "bilingual": false
   }
 ]
