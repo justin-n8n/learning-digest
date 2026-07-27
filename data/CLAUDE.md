@@ -37,7 +37,9 @@
 - **Cloudflare Access（Zero Trust）**：限制只有使用者自己的 Google 帳號可以登入存取整個網站。
 - **資料抓取**：透過 Gmail MCP 工具（`mcp__Gmail__*`）用 `label:` 查詢語法抓信，用 `get_thread` 抓全文內容。
 - **推送資料到 GitHub**：⚠️ **重要**——這個沙盒環境的 `git push` / 直接呼叫 GitHub REST API 都會被安全代理擋下（`git push` 會卡在要求終端機認證；直接 curl GitHub API 寫入端點會回傳「Write access to this GitHub API path is not permitted through this proxy」）。**唯一能寫入的方式是使用 MCP 工具 `mcp__remote-devices__github__create_or_update_file`（單檔）或 `mcp__remote-devices__github__push_files`（多檔一次 commit）**，把完整檔案內容當作參數傳入。更新既有檔案時需要先用 `get_file_contents` 拿到該檔案目前的 `sha`。
-  - **檔案大小限制（2026-07-27 新增，非常重要，詳見第 6 節事故三）**：`content` 參數必須由 AI 在當下這輪對話「原樣輸出」全部內容，不是引用檔案路徑。實測 **~150KB 以下**（James.json 124KB）可以放心交給 subagent 直接推送；**超過這個門檻（例如 damon.json 465KB、wsj.json 2.3MB）不要再用 subagent 硬推**，容易輸出被截斷、把正式檔案寫壞卻誤判成功。超過門檻的檔案，請改成用 `SendUserFile` 交給使用者，請他自己到 GitHub 網頁用「Add file → Upload files」手動上傳蓋掉舊檔（使用者對這個流程已經很熟悉）。推送完不論是誰推的，都要用 `get_file_contents` 核對 byte size 是否跟來源檔案一致，不要只看有沒有報錯。
+  - **檔案大小限制（2026-07-27 新增並於同日再次修訂，非常重要，詳見第 6 節事故三、事故四）**：`content` 參數必須由 AI 在當下這輪對話「原樣輸出」全部內容，不是引用檔案路徑。**最初以為 ~150KB 以下算安全門檻，但後來實測連 130KB（james.json）都失敗過兩次——一次是 subagent 誤寫成字面上的 `$(cat ...)` shell 指令字串，另一次是「主線程 AI 親自」呼叫 `create_or_update_file`、沒有經過 subagent，結果內容仍被靜默截斷成不到一半（23 封信被砍成 10 封），但工具呼叫本身回報成功，沒有任何錯誤訊息。這證明問題不是「subagent 不可靠」，而是「用工具參數一次性吐出大量文字」這個做法本身在檔案夠大時就是不可靠的，跟是誰執行、用不用 subagent 無關。**
+  - **新規則：任何 `data/<key>.json` 的異動更新（不只是新建），一律預設用 `SendUserFile` 交給使用者本人，請他到 GitHub 網頁用「Add file → Upload files」手動上傳蓋掉舊檔（使用者對這個流程已經很熟悉）。不要再嘗試用 `create_or_update_file` 或 `push_files` 自動推送任何資料檔案，不論檔案多小，除非是像 `labels.json`（1.6KB）這種極小的設定檔。** 推送完（不論是誰推的），都要用 `get_file_contents` 核對 byte size 與信件筆數是否跟來源檔案一致，不要只看有沒有報錯。
+  - **手動上傳時的額外提醒（2026-07-27 事故五教訓）**：請使用者上傳時務必確認是拖進 `data/` 資料夾內部，不是拖到 repo 根目錄——曾經發生使用者不小心把 7 個資料檔案上傳到根目錄（跟 `data/` 平行），網站不會讀到（不影響運作）但會造成 repo 雜亂。且 **這個 MCP GitHub 連接器沒有「刪除檔案」的工具**，誤傳的檔案 AI 沒辦法自己清掉，只能請使用者自己在 GitHub 網頁上點進檔案、用右上角選單 Delete file 手動刪除。
 - **排程更新**：用 claude-code-remote MCP server 的 `create_trigger`/`update_trigger`/`list_triggers` 等工具。**絕對不要用**本機的 `CronCreate`/`CronList`/`CronDelete`，那些是 session 內部排程，session 結束就失效。
 
 ## 3. 標籤清單（目前 10 個，2026-07-27 起現況）
@@ -95,9 +97,9 @@
    b. 用 Gmail 搜尋該標籤的信，篩選出 `date` 比現有最新那筆更新的信件（可以搜尋時加 `after:YYYY/MM/DD` 抓保險一點的範圍，抓回來後再用 `id` 去重）。
    c. 若沒有新信，跳過這個標籤，處理下一個。
    d. 若有新信，用第 4 節規則清理（雙語標籤要翻譯；damon/james 要組成 `paragraphs` 格式，wsj 維持舊的 `contentEn`/`contentZh` 格式），組成新的 email 物件，**加到現有陣列最前面**（維持新到舊排序），組回完整 JSON。
-   e. 檢查更新後的完整 JSON 檔案大小：**~150KB 以下**用 `mcp__remote-devices__github__create_or_update_file` 直接推送（需要先用 `get_file_contents` 拿到目前檔案的 `sha`）；**超過 ~150KB** 則改用 `SendUserFile` 交給使用者手動上傳（詳見第 2 節、第 6 節事故三）。**每處理完一個標籤就處理一次，不要全部標籤都抓完才一次處理**（避免中途出錯遺失已完成的部分）。
+   e. 整理好更新後的完整 JSON，**一律用 `SendUserFile` 交給使用者本人手動上傳**（詳見第 2 節最新規則、第 6 節事故三、事故四），不要嘗試用 `create_or_update_file` 自動推送資料檔案，即使檔案看起來很小也一樣——這個限制已經證實跟檔案大小無關。可以把當週所有標籤更新好的檔案一次整理好、一次性用 `SendUserFile` 全部送出，讓使用者一次上傳，不需要每個標籤分開送。**每處理完一個標籤的資料清理/翻譯就先存檔（本機沙盒暫存也好），不要全部標籤都抓完才一次處理**（避免中途出錯遺失已完成的部分，詳見事故一）。
 3. 全部標籤處理完後，可以簡單記錄這次更新了幾個標籤、新增了幾封信（不需要主動通知使用者，除非有異常狀況，例如某個 Gmail 標籤已經不存在了）。
-4. 資料量大的標籤（wsj、fuge）建議交給 subagent 處理抓取＋清理，但**推送時仍要遵守第 2 節的檔案大小限制**，不要讓 subagent 硬推超過 ~150KB 的完整檔案。
+4. 資料量大的標籤（wsj、fuge）建議交給 subagent 處理抓取＋清理，但**推送一律走使用者手動上傳，不要讓 subagent 或主線程嘗試自動推送任何資料檔案**（見第 2 節最新規則）。
 
 ## 6. 重大事故記錄（非常重要，請詳讀，避免重蹈覆轍）
 
@@ -118,6 +120,23 @@
 - 檔案大小在 **~150KB 以下**（James.json 124KB 實測成功）可以放心交給 subagent 直接推送。
 - 檔案大小超過這個門檻（例如 damon.json 465KB、wsj.json 2.3MB），**不要**再嘗試用 subagent 硬推，容易靜默寫壞正式資料。**改成請使用者本人手動上傳**：把整理好的檔案用 `SendUserFile` 交給使用者，請他到 `https://github.com/<owner>/<repo>/tree/main/<path所在資料夾>`，用「Add file → Upload files」把檔案拖進去、蓋掉舊檔、commit。使用者對這個流程已經很熟悉（先前 master_easy_read.json 254KB 也是這樣上傳的）。
 - 推送完（不論是 AI 推的還是使用者手動推的），**務必用 `get_file_contents` 或 `curl raw.githubusercontent.com` 檢查檔案的 byte size 與內容筆數是否跟本機的來源檔案完全一致**，不要只看「有沒有回傳成功」就當作推送正確——這次的事故就是 subagent 誤判「工具呼叫沒報錯」＝「內容正確」，但實際上內容已經被截斷。
+
+### 事故四：即使改由「主線程 AI 親自」推送（不用 subagent），大檔案依然被靜默截斷（2026-07-27）
+繼事故三之後，james.json 被某個 subagent 推送時又發生一次新的失敗模式：`content` 參數裡沒有真的塞入 JSON 內容，而是塞了一個字面上的 shell 指令字串 `$(cat /home/claude/work/james_updated.json)`（43 bytes），像是 subagent 誤以為工具參數會執行 shell 指令、直接把指令語法當文字寫了進去，但 subagent 自己有察覺並回報這個失敗，沒有謊報成功。接著主線程 AI 想說「那我自己來推，不假手 subagent」，直接在對話中把完整 130,528 bytes 的 JSON 內容貼進 `create_or_update_file` 的 `content` 參數，工具呼叫回報成功、沒有任何錯誤，但事後用 `get_file_contents` 核對才發現 GitHub 上的檔案只有 53,160 bytes、23 封信被砍成只剩 10 封——**又是一次靜默截斷，而且這次連 subagent 都沒有牽涉在內**。
+
+**根本原因（修正後的理解）**：問題不在於「是不是用 subagent」，而在於「一次工具呼叫裡的 `content` 參數需要塞入的文字量，超過了該次生成（不管是主線程還是 subagent）單輪能夠完整輸出的量」。中文字在這類生成過程中消耗的輸出配額通常比英文高，所以含大量中文翻譯的 JSON 檔案特別容易踩到這個上限，而且踩到上限時的失敗模式不是「報錯」，是「安靜地只寫出一部分，但整體語法仍合法、仍能通過 JSON parse」，非常容易被誤判成功。
+
+**教訓**：不要再嘗試用任何門檻（不管是 130KB、150KB 還是更小）來判斷「這個大小應該安全」，這個判斷方式已經被推翻兩次。**資料檔案的更新一律交給使用者本人手動上傳**，這是目前唯一被驗證過完全可靠、不會有截斷風險的方式（因為使用者的瀏覽器上傳是直接串流檔案位元組，不受 AI 單輪輸出上限影響）。詳見第 2 節最新規則。
+
+### 事故五：使用者手動上傳時不小心上傳到 repo 根目錄，且 AI 無法自行清除（2026-07-27）
+使用者依照指示要把 7 個更新好的資料檔案上傳到 `data/` 資料夾，但第一次操作時不小心把檔案拖到了 repo 根目錄（跟 `data/` 資料夾同一層），導致根目錄下多了 7 個跟 `data/` 內同名的重複檔案。網站前端只會 fetch `data/<key>.json`，所以不影響網站運作，但造成 repo 結構混亂。使用者發現後自己重新上傳到正確的 `data/` 資料夾（第二次操作成功，byte size 核對全部吻合），並要求把根目錄下誤傳的 7 個檔案刪除。
+
+**發現的新限制**：目前連接的 GitHub MCP 工具（`mcp__remote-devices__github__*`）**只有 `create_or_update_file`、`push_files`、`get_file_contents` 等讀寫/建立功能，沒有任何刪除檔案的工具**，AI 沒辦法自己清除誤傳的檔案。最後是請使用者自己到 GitHub 網頁上，點進每個誤傳的檔案、用右上角選單選 Delete file，一個一個手動刪除完成清理。
+
+**教訓**：
+- 請使用者上傳檔案時，指示要更明確、具體——不只是說「上傳到 data 資料夾」，最好附上完整路徑範例（例如 `https://github.com/<owner>/<repo>/tree/main/data`），並提醒他上傳前先確認目前瀏覽器頁面是在 `data/` 資料夾裡面，不是在 repo 根目錄。
+- 如果使用者回報「上傳好了」，AI 仍然要主動用 `get_file_contents` 核對，不要照單全收；這次能及早發現誤傳到根目錄，就是靠這個核對習慣。
+- 目前沒有刪除檔案的工具可用，任何需要刪除 GitHub 檔案的情境都要引導使用者自己在網頁上操作，不要嘗試用其他方式繞過（例如把內容清空成空字串——那樣檔案還是存在，不是真正刪除）。
 
 ### 其他曾踩過的坑
 - `AskUserQuestion` 工具的 JSON 參數要用正確的結構化格式，避免手動跳脫字元出錯。
@@ -159,3 +178,5 @@
 9. **更新 learning-digest-report.html 專案總結報告**：反映當天全部變更（天空藍改版、10 標籤全數完整、WSJ 修復、每週自動更新上線），同步到本機資料夾與 Cowork 桌面 artifact（`learning-digest-report`），並在報告中註記 `PROJECT_HANDOFF.md` 是尚未同步、內容重疊的舊版技術文件。
 10. **中英對照改為「段落級對齊」排版**：使用者反映中英對照畫面英文跟中文對不齊。檢查後發現 damon、james 的翻譯本來就幾乎是逐段對應的，只是前端把 `contentEn`/`contentZh` 當兩大段文字各自捲動渲染，才會視覺上對不齊；wsj 則是翻譯本身就是整合摘要式，段落結構跟原文差異太大（187 封中 110 封對不上），真要對齊得整批重新翻譯，使用者決定 wsj 這次先不動。最後做法：把 damon（95 封）、james（22 封）轉成新的 `paragraphs: [{en, zh}]` 段落陣列格式，前端 `index.html` 改成逐列並排渲染（同一列一定是同一段），確保視覺精準對齊；wsj 維持舊格式與舊排版不變。
 11. **修復大檔案推送導致的資料損毀事故**：把 damon.json 交給 subagent 推送時，因檔案過大（465KB）超出單輪輸出上限，subagent 誤判推送成功，實際把 GitHub 上的 damon.json 寫壞成只剩 1 封信。已請使用者本人手動上傳完整版修復（並用 byte size 核對內容一致），詳見第 6 節事故三。之後任何超過 ~150KB 的資料檔異動都會請使用者手動上傳，不再冒險用 subagent 硬推。
+12. **每週增量更新（第一次實際執行）**：對 7 個標記「每週增量更新」的標籤（damon、james、wsj、ai2026、alvin、vista_cheng、fuge）執行 Gmail 增量抓取，共新增 28 封信（james +1、damon +1、wsj +12、ai2026 +5、alvin +2、vista_cheng +3、fuge +4），master_easy_read、brief 兩個標籤本週無新信。過程中再度發生兩次推送失敗（詳見第 6 節事故四），最終確認「不管檔案多大、不管是不是用 subagent，自動推送都不可靠」，全部 7 個檔案改為使用者本人手動上傳完成，事後逐一用 `get_file_contents` 核對 byte size 與信件筆數，全數吻合。第 2 節、第 5 節的檔案大小門檻規則已同步修訂為「一律手動上傳」。
+13. **修正誤傳到 repo 根目錄的檔案**：使用者上傳第 12 項的 7 個檔案時，第一次不小心上傳到 repo 根目錄而非 `data/` 資料夾，發現後由使用者自行到 GitHub 網頁手動刪除（AI 沒有刪除檔案的工具可用），詳見第 6 節事故五。
