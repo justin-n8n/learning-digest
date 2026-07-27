@@ -40,13 +40,12 @@
   - 若資料檔很大（例如 wsj.json、fuge.json 這種上百 KB 的檔案），把完整內容當參數傳入會消耗大量 token。**建議把「抓信＋清理＋組 JSON」交給一個 subagent 執行到底（含最後的 push 動作也讓 subagent 自己做），避免把大量原始信件內容或大型 JSON 拉進主線對話的 context。**
 - **排程更新**：用 claude-code-remote MCP server 的 `create_trigger`/`update_trigger`/`list_triggers` 等工具。**絕對不要用**本機的 `CronCreate`/`CronList`/`CronDelete`，那些是 session 內部排程，session 結束就失效。
 
-## 3. 標籤清單（目前 11 個，2026-07-27 起現況）
+## 3. 標籤清單（目前 10 個，2026-07-27 起現況）
 
 > **2026-07-27 使用者決策更新（覆蓋舊規則）：**
-> - **數位時代（bnext）、ali mirza（ali_mirza）已被使用者要求永久移除**，已從 `data/labels.json` 刪除，網站上不再顯示這兩個分頁。除非使用者明確表示要重新加回來，否則不要主動恢復。
+> - **數位時代（bnext）、ali mirza（ali_mirza）、未來商務（future_biz）已被使用者要求永久移除**，已從 `data/labels.json` 刪除，網站上不再顯示這三個分頁。除非使用者明確表示要重新加回來，否則不要主動恢復，也不要再抓取這些標籤的信件。
 > - **大師輕鬆讀（master_easy_read）已補齊全部歷史信件（122 封）**，`data/master_easy_read.json` 已完整，並已正式加入每週自動更新的標籤清單（不再是「不再抓取」狀態）。
 > - **華爾街日報（wsj）的雙語問題已修正**：`wsj.json` 資料本身其實已經是中英對照格式（`contentEn`/`contentZh`），但 2026-07-26 一度把 `labels.json` 的 `bilingual` 改成 `false` 導致前端顯示空白。2026-07-27 已改回 `bilingual: true`，wsj 現在**是**雙語標籤，資料完整（187 封起跳），繼續維持雙語抓取與翻譯。
-> - **future_biz（未來商務）狀態未變**：目前只有 4 封（原本 Gmail 上有 33 封），尚未補齊缺口。使用者尚未明確表示要不要花力氣補齊這個歷史缺口，先維持現狀，每週自動更新時只抓「比現有資料更新的信」（增量），不要主動去補那個歷史缺口，除非使用者要求。
 
 | key | 顯示名稱 | Gmail 標籤路徑 | Gmail labelId | bilingual | 抓取範圍 |
 |---|---|---|---|---|---|
@@ -60,9 +59,8 @@
 | fuge | 福哥來信 | 06_學習/福哥來信 | Label_4523792686777732210 | 否 | 全歷史（每週增量更新） |
 | brief | Brief | 06_學習/Brief | Label_3367205939263792668 | 否 | 近 6 個月（每週增量更新） |
 | hou_zhixun | 侯智薰 | 06_學習/侯智薰 | Label_3544715739386180075 | 否 | ⛔ 使用者決定不抓取（維持現狀） |
-| future_biz | 未來商務 | 06_學習/未來商務 | Label_4031827219020548547 | 否 | 只做增量更新，不補歷史缺口（見上方說明） |
 
-`bnext`（數位時代）、`ali_mirza`（ali mirza）：**已移除，不在 `labels.json` 裡，不要抓取。**
+`bnext`（數位時代）、`ali_mirza`（ali mirza）、`future_biz`（未來商務）：**已移除，不在 `labels.json` 裡，不要抓取。**
 
 這份對照表就是 `data/labels.json`，之後使用者想加新標籤，只要在這個 JSON 陣列裡新增一筆即可，不需要改前端程式碼邏輯。
 
@@ -127,3 +125,15 @@
 ## 9. 每週自動更新排程（2026-07-27 設定）
 
 已透過 claude-code-remote MCP 的 `create_trigger` 設定一個每週排程，會在固定時間自動啟動一個新的 Claude session，該 session 的第一件事就是讀這份文件（`data/CLAUDE.md`）然後照第 5 節的流程執行增量更新。若使用者想調整時間、暫停或取消，直接請 Claude 用 `update_trigger` / `delete_trigger` 處理，不需要重新手動設定整個流程。
+
+## 10. 變更記錄（Changelog）
+
+### 2026-07-27
+1. **視覺改版**：`index.html` 全面改為天空藍配色主題（CSS 變數 `--bg`/`--accent`/`--accent-dark`/`--accent-bg`，漸層 header），保留原有 JS 邏輯（已讀同步、Readwise、分頁渲染）不變。
+2. **新增使用說明**：`index.html` 右上角新增「❓ 使用說明」按鈕，點擊開啟說明彈窗，內容涵蓋基本操作、如何手動觸發更新、自動排程說明。
+3. **修正華爾街日報（wsj）空白內文 bug**：根因是 `labels.json` 的 `wsj.bilingual` 被設成 `false`，但 `wsj.json` 資料實際上是雙語格式（`contentEn`/`contentZh`），導致前端找不到 `content` 欄位而顯示空白。修正方式：把 `wsj.bilingual` 改回 `true`，不需要重新抓取資料。
+4. **補齊大師輕鬆讀（master_easy_read）全部歷史信件**：從 Gmail 抓取並清理全部 122 封信件，組成 `data/master_easy_read.json`（254,861 bytes），已推送到 GitHub（由使用者本人手動上傳完成，因檔案過大不適合透過沙盒逐字傳遞）。已正式加入每週自動更新的標籤清單。
+5. **移除三個標籤**：依使用者要求，`數位時代（bnext）`、`ali mirza（ali_mirza）`、`未來商務（future_biz）` 依序從 `data/labels.json` 移除（各自獨立 commit push 到 GitHub），網站上不再顯示這三個分頁，之後也不再抓取。
+6. **設定每週自動更新排程**：透過 claude-code-remote MCP 的 `create_trigger` 建立每週排程（見第 9 節），排程觸發的 session 會讀這份文件並依第 5 節流程執行增量更新，不需要使用者手動提醒。
+7. **發現並記錄沙盒 GitHub 寫入限制**：確認 `git push` 與直接 `curl` PUT GitHub REST API 都會被沙盒的安全代理擋下，唯一可用的寫入方式是 `mcp__remote-devices__github__*` 系列 MCP 工具，已記錄於第 2 節與第 6 節事故二，避免之後的 session（尤其是排程觸發的 session）重新踩坑。
+8. **同步使用者本機資料夾**：把 `C:\Users\s8825\Desktop\claude code使用專案資料夾\01.專案-請AI整理資料\17.信件` 資料夾內的檔案更新為與 GitHub 一致的最新版本（`index.html`、`data/labels.json`、`data/CLAUDE.md`、`README.md`、新增 `data/master_easy_read.json`），並把已刪除標籤對應的舊資料檔（`data/future_biz.json`）與先前不小心夾帶的垃圾檔（`data/damon_batch4.json`）移到 `_to_delete/` 子資料夾，方便使用者自行刪除。
